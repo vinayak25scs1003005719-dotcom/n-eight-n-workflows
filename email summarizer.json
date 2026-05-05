@@ -1,0 +1,246 @@
+{
+  "name": "Vinayak Personal Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 24
+            }
+          ]
+        }
+      },
+      "id": "9a09016b-8038-449c-b2db-b3417a3af7f7",
+      "name": "Daily 9AM Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        4048,
+        1760
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "filters": {
+          "labelIds": [
+            "UNREAD"
+          ]
+        }
+      },
+      "id": "5cafa82c-996a-41e6-92ee-ddce35618294",
+      "name": "Fetch Daily Emails",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        4272,
+        1760
+      ],
+      "webhookId": "YOUR_WEBHOOK_ID",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YOUR_GMAIL_CREDENTIAL_ID",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items_list = items.map(item => ({\n  from: item.json.from,\n  subject: item.json.subject,\n  snippet: item.json.snippet,\n  date: item.json.date\n}));\n\nreturn [{ json: { emails: JSON.stringify(items_list, null, 2), count: items_list.length } }];"
+      },
+      "id": "e154524a-780c-4a18-bf00-59403dadc76c",
+      "name": "Format Emails",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4496,
+        1760
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const count = items[0].json.count;\nconst emails = items[0].json.emails;\n\nreturn [{\n  json: {\n    payload: JSON.stringify({\n      model: \"mistralai/mistral-large-3-675b-instruct-2512\",\n      messages: [\n        {\n          role: \"system\",\n          content: \"You are Vinayak's personal assistant. Summarize his daily emails professionally. Group into: Client emails, Urgent/Important, Promotional/Spam. Flag client requests or deadlines. Keep the total summary under 1500 characters. Use clear headings. No emojis. KEEP IT PROFESSIONAL.\"\n        },\n        {\n          role: \"user\",\n          content: \"Here are \" + count + \" unread emails: \" + emails\n        }\n      ],\n      temperature: 0.15,\n      top_p: 1,\n      max_tokens: 1024,\n      frequency_penalty: 0,\n      presence_penalty: 0,\n      stream: false\n    })\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4720,
+        1760
+      ],
+      "id": "e4cf0279-7ae1-4bf2-aa41-ff25d2b157ea",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://integrate.api.nvidia.com/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "raw",
+        "body": "={{ $json.payload }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        4944,
+        1760
+      ],
+      "id": "91ae7c10-d8fe-474a-b0de-4661ace1e4c0",
+      "name": "HTTP Request",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "YOUR_NVIDIA_CREDENTIAL_ID",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const content = items[0];\nlet summaryText = '';\n\ntry {\n  if (content.json.choices && content.json.choices[0]) {\n    summaryText = content.json.choices[0].message.content;\n  } else if (content.json.message && content.json.message.content) {\n    summaryText = content.json.message.content;\n  } else if (content.json.text) {\n    summaryText = content.json.text;\n  } else {\n    summaryText = JSON.stringify(content.json);\n  }\n} catch(e) {\n  summaryText = 'Could not parse AI summary: ' + e.message;\n}\n\nreturn [{ json: { summaryText } }];"
+      },
+      "id": "37331f79-d412-4dcf-bad9-ff5e4e305aa7",
+      "name": "Parse AI Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5168,
+        1760
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const text = items[0].json.summaryText;\nconst chunks = [];\nlet current = '';\n\nconst lines = text.split('\\n');\nfor (const line of lines) {\n  if ((current + '\\n' + line).length > 1900) {\n    chunks.push(current);\n    current = line;\n  } else {\n    current = current ? current + '\\n' + line : line;\n  }\n}\nif (current) chunks.push(current);\n\nreturn chunks.map((chunk, i) => ({\n  json: {\n    content: i === 0\n      ? '**Good morning Vinayak!**\\n\\n**Daily Email Summary**\\n\\n' + chunk\n      : chunk\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5392,
+        1760
+      ],
+      "id": "e9d30656-47ee-40e9-9eba-c11392c9a4a7",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "YOUR_DISCORD_WEBHOOK_URL",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "content",
+              "value": "={{ $json.content }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "54bf86fb-0124-48e4-8b5b-692c31a919e2",
+      "name": "Send to Discord",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        5616,
+        1760
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Daily 9AM Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Daily Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Daily Emails": {
+      "main": [
+        [
+          {
+            "node": "Format Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Emails": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Response": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Send to Discord",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "df9628e1-b4fc-436b-ace3-10ef8d3a08cb",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "YOUR_N8N_INSTANCE_ID"
+  },
+  "id": "NRZiMMoGkAtZbWtq",
+  "tags": []
+}
