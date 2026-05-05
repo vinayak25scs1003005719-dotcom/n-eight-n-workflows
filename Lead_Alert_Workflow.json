@@ -1,0 +1,92 @@
+{
+  "name": "Lead Alert Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [{ "mode": "everyMinute" }]
+        },
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SPREADSHEET_ID",
+          "mode": "list",
+          "cachedResultName": "sample spreadsheet",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_SPREADSHEET_ID/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_SPREADSHEET_ID/edit#gid=0"
+        },
+        "event": "rowAdded",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTrigger",
+      "typeVersion": 1,
+      "position": [512, 64],
+      "id": "e584af91-4a84-4810-b369-cc67649e938a",
+      "name": "Google Sheets Trigger",
+      "credentials": {
+        "googleSheetsTriggerOAuth2Api": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Google Sheets Trigger OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const allRows = $input.all();\n\nconst staticData = $getWorkflowStaticData('global');\nconst processedIds = staticData.processedIds || [];\n\nconst newRows = [];\n\nfor (const row of allRows) {\n  const rowId = row.json['id'];\n  \n  if (!rowId || processedIds.includes(rowId)) {\n    continue;\n  }\n\n  newRows.push(row);\n  processedIds.push(rowId);\n}\n\nstaticData.processedIds = processedIds;\n\nif (newRows.length === 0) {\n  return [];\n}\n\nreturn newRows;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [736, 64],
+      "id": "4239e87b-c1b0-47e7-933f-977ad0049314",
+      "name": "Filter New Rows Only"
+    },
+    {
+      "parameters": {
+        "sendTo": "YOUR_EMAIL@gmail.com",
+        "subject": "=🦷 New Lead: {{ $json.full_name }}",
+        "message": "=<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"UTF-8\" /><title>New Lead Alert</title></head><body style=\"margin:0;padding:0;background-color:#f0f4f8;font-family:'Georgia',serif;\"><table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background-color:#f0f4f8;padding:40px 0;\"><tr><td align=\"center\"><table width=\"600\" cellpadding=\"0\" cellspacing=\"0\" style=\"max-width:600px;width:100%;\"><tr><td style=\"background-color:#0a1628;padding:36px 40px;border-radius:12px 12px 0 0;\"><table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\"><tr><td><p style=\"margin:0;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#4a9eff;\">Incoming</p><h1 style=\"margin:8px 0 0;font-size:28px;color:#ffffff;font-weight:normal;\">New Lead Alert 🦷</h1></td><td align=\"right\" style=\"vertical-align:top;\"><span style=\"display:inline-block;background-color:#1a3a5c;color:#4a9eff;font-size:11px;letter-spacing:1px;padding:6px 14px;border-radius:20px;font-family:monospace;\">{{ $json.lead_status }}</span></td></tr></table></td></tr><tr><td style=\"background-color:#122040;padding:12px 40px;\"><p style=\"margin:0;font-family:monospace;font-size:11px;color:#6b8cae;letter-spacing:1px;\">LEAD ID: {{ $json.id }} &nbsp;&nbsp;|&nbsp;&nbsp; {{ $json.created_time }} &nbsp;&nbsp;|&nbsp;&nbsp; {{ $json.platform }}</p></td></tr><tr><td style=\"background-color:#ffffff;padding:36px 40px;\"><p style=\"margin:0 0 6px;font-size:10px;letter-spacing:3px;text-transform:uppercase;color:#4a9eff;font-family:monospace;\">Contact Info</p><table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"border:1px solid #e8edf3;border-radius:8px;overflow:hidden;margin-bottom:28px;\"><tr style=\"background-color:#f8fafc;\"><td style=\"padding:14px 20px;border-bottom:1px solid #e8edf3;width:40%;\"><p style=\"margin:0;font-size:11px;color:#8a9bb0;text-transform:uppercase;letter-spacing:1px;\">Full Name</p><p style=\"margin:4px 0 0;font-size:15px;color:#0a1628;font-weight:bold;\">{{ $json.full_name }}</p></td><td style=\"padding:14px 20px;border-bottom:1px solid #e8edf3;border-left:1px solid #e8edf3;\"><p style=\"margin:0;font-size:11px;color:#8a9bb0;text-transform:uppercase;letter-spacing:1px;\">Email</p><p style=\"margin:4px 0 0;font-size:15px;color:#0a1628;\">{{ $json.email }}</p></td></tr><tr><td style=\"padding:14px 20px;\" colspan=\"2\"><p style=\"margin:0;font-size:11px;color:#8a9bb0;text-transform:uppercase;letter-spacing:1px;\">Phone</p><p style=\"margin:4px 0 0;font-size:15px;color:#0a1628;\">{{ $json.phone_number }}</p></td></tr></table><p style=\"margin:0 0 6px;font-size:10px;letter-spacing:3px;text-transform:uppercase;color:#4a9eff;font-family:monospace;\">Qualification</p><table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"border:1px solid #e8edf3;border-radius:8px;overflow:hidden;margin-bottom:28px;\"><tr><td style=\"padding:14px 20px;border-bottom:1px solid #e8edf3;width:50%;\"><p style=\"margin:0;font-size:11px;color:#8a9bb0;text-transform:uppercase;letter-spacing:1px;\">Licensed Dentist (USA)?</p><p style=\"margin:4px 0 0;font-size:14px;color:#0a1628;\">{{ $json[\"are_you_a_licensed_dentist_in_the_usa?\"] }}</p></td><td style=\"padding:14px 20px;border-bottom:1px solid #e8edf3;border-left:1px solid #e8edf3;\"><p style=\"margin:0;font-size:11px;color:#8a9bb0;text-transform:uppercase;letter-spacing:1px;\">Years of Experience</p><p style=\"margin:4px 0 0;font-size:14px;color:#0a1628;\">{{ $json.years_of_experience }}</p></td></tr><tr><td style=\"padding:14px 20px;border-bottom:1px solid #e8edf3;\" colspan=\"2\"><p style=\"margin:0;font-size:11px;color:#8a9bb0;text-transform:uppercase;letter-spacing:1px;\">Best Describes You</p><p style=\"margin:4px 0 0;font-size:14px;color:#0a1628;\">{{ $json[\"which_best_describes_you?\"] }}</p></td></tr><tr><td style=\"padding:14px 20px;border-bottom:1px solid #e8edf3;\" colspan=\"2\"><p style=\"margin:0;font-size:11px;color:#8a9bb0;text-transform:uppercase;letter-spacing:1px;\">Most Interested In</p><p style=\"margin:4px 0 0;font-size:14px;color:#0a1628;\">{{ $json[\"what_are_you_most_interested_in?\"] }}</p></td></tr><tr><td style=\"padding:14px 20px;\" colspan=\"2\"><p style=\"margin:0;font-size:11px;color:#8a9bb0;text-transform:uppercase;letter-spacing:1px;\">Seriousness About Upgrading</p><p style=\"margin:4px 0 0;font-size:14px;color:#0a1628;\">{{ $json[\"how_serious_are_you_about_upgrading_your_skills/practice?\"] }}</p></td></tr></table><p style=\"margin:0 0 6px;font-size:10px;letter-spacing:3px;text-transform:uppercase;color:#4a9eff;font-family:monospace;\">Ad Source</p><table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"border:1px solid #e8edf3;border-radius:8px;overflow:hidden;margin-bottom:8px;\"><tr><td style=\"padding:14px 20px;border-bottom:1px solid #e8edf3;\"><p style=\"margin:0;font-size:11px;color:#8a9bb0;text-transform:uppercase;letter-spacing:1px;\">Form Name</p><p style=\"margin:4px 0 0;font-size:14px;color:#0a1628;\">{{ $json.form_name }}</p></td></tr><tr><td style=\"padding:14px 20px;\"><p style=\"margin:0;font-size:11px;color:#8a9bb0;text-transform:uppercase;letter-spacing:1px;\">Campaign / Adset / Ad</p><p style=\"margin:4px 0 0;font-size:13px;color:#0a1628;font-family:monospace;\">{{ $json.campaign_name }} / {{ $json.adset_name }} / {{ $json.ad_name }}</p></td></tr></table></td></tr><tr><td style=\"background-color:#0a1628;padding:20px 40px;border-radius:0 0 12px 12px;\"><table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\"><tr><td><p style=\"margin:0;font-size:11px;color:#4a6080;font-family:monospace;\">Form ID: {{ $json.form_id }} &nbsp;|&nbsp; Status Code: {{ $json.Status }}</p></td><td align=\"right\"><p style=\"margin:0;font-size:11px;color:#4a6080;\">Organic: {{ $json.is_organic }}</p></td></tr></table></td></tr></table></td></tr></table></body></html>",
+        "options": {
+          "ccList": ""
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [960, 64],
+      "id": "e54b3aba-e0ac-4155-97eb-f71d4e59caa2",
+      "name": "Send a message",
+      "webhookId": "YOUR_WEBHOOK_ID",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Gmail OAuth2 API"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Google Sheets Trigger": {
+      "main": [[{ "node": "Filter New Rows Only", "type": "main", "index": 0 }]]
+    },
+    "Filter New Rows Only": {
+      "main": [[{ "node": "Send a message", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "b3834b5d-7078-414d-b472-89316f6fbcd1",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "REDACTED"
+  },
+  "id": "HkmJKxngD09pYQds",
+  "tags": []
+}
